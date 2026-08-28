@@ -20,10 +20,38 @@ describe("runAnalysis", () => {
     expect(evidenceWithinBounds(analysis.evidence, text)).toBe(true);
   });
 
+  it("prioritizes payment and urgency evidence for suspicious job offers", async () => {
+    const text =
+      "Congratulations! 🎉 Your profile has been selected for a work-from-home position with a salary of ₹75,000 per month. To confirm your position, you need to pay a refundable registration fee of ₹1,499 within the next 10 minutes. Click here to complete your registration: https://company-careers-india.example.com/register";
+    const analysis = await runAnalysis({ type: "text", rawText: text });
+
+    expect(analysis.riskScore).toBeGreaterThanOrEqual(90);
+    expect(analysis.riskLevel).toMatch(/HIGH|CRITICAL/);
+    expect(analysis.evidence.some((item) => item.quote.includes("registration fee of ₹1,499"))).toBe(true);
+    expect(analysis.evidence.some((item) => item.quote.includes("within the next 10 minutes"))).toBe(true);
+    expect(analysis.attackChain.some((stage) => stage.stage === "URGENCY")).toBe(true);
+    expect(analysis.attackChain.some((stage) => stage.stage === "MONEY_CREDENTIALS")).toBe(true);
+  });
+
   it("does not flag an ordinary legitimate message as high risk", async () => {
     const text = "Hi Priya, just checking if you're free for coffee this Saturday around 11am. Let me know!";
     const analysis = await runAnalysis({ type: "text", rawText: text });
     expect(analysis.riskLevel).toBe("LOW");
+  });
+
+  it("keeps a legitimate recruitment message low risk", async () => {
+    const text = `Hi Ankit,
+
+Your interview for the Software Engineering Internship has been scheduled for Monday, September 7 at 11:00 AM.
+
+Please join using the meeting link provided in your application portal. If you need to reschedule, you can do so through the official careers portal.
+
+Best regards,
+Recruitment Team`;
+    const analysis = await runAnalysis({ type: "text", rawText: text });
+
+    expect(analysis.riskLevel).toBe("LOW");
+    expect(analysis.evidence.length).toBeLessThanOrEqual(1);
   });
 
   it("resists prompt injection embedded in the analyzed content", async () => {

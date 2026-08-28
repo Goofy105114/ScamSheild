@@ -7,7 +7,7 @@ interface CategoryRule {
 }
 
 const CATEGORY_RULES: CategoryRule[] = [
-  { category: "job_scam", signals: ["unrealistic_reward", "upfront_payment"], weight: 1 },
+  { category: "job_scam", signals: ["registration_fee", "unrealistic_reward", "upfront_payment", "attractive_offer", "urgency"], weight: 1.3 },
   { category: "banking_scam", signals: ["banking_info_request", "account_verification", "otp_request"], weight: 1 },
   { category: "payment_scam", signals: ["upfront_payment", "unusual_payment_method"], weight: 0.8 },
   { category: "investment_scam", signals: ["guaranteed_returns"], weight: 1.4 },
