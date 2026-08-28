@@ -3,6 +3,22 @@ import { checkRateLimit, getClientKey } from "@/lib/rateLimit";
 import { runAnalysis } from "@/lib/engine/analyze";
 import { extractTextFromImage } from "@/lib/engine/ocr";
 
+const OCR_TIMEOUT_MS = 60_000;
+
+async function extractTextWithTimeout(buffer: Buffer): Promise<string> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      extractTextFromImage(buffer).then((result) => result.text),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("OCR timed out")), OCR_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 export async function POST(req: Request) {
   const clientKey = getClientKey(req);
   const rate = checkRateLimit(clientKey);
@@ -40,8 +56,7 @@ export async function POST(req: Request) {
 
   let extractedText = "";
   try {
-    const ocrResult = await extractTextFromImage(buffer);
-    extractedText = ocrResult.text;
+    extractedText = await extractTextWithTimeout(buffer);
   } catch {
     return jsonError(502, "OCR_FAILED", "Text extraction from the image failed. Please try a clearer screenshot or paste the text directly.");
   }

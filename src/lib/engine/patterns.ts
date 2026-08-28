@@ -228,7 +228,8 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     severity: "medium",
     stage: "TRUST",
     patterns: [
-      /\b(bank|amazon|flipkart|paypal|microsoft|apple|google|income\s?tax|customs|courier|fedex|dhl|police|cbi|rbi)\b.{0,25}\b(team|department|support|security|official)\b/i,
+      /\b(bank|amazon|flipkart|paypal|microsoft|apple|google|income\s?tax|india\s+post|customs|courier|fedex|dhl|police|cbi|rbi)\b.{0,25}\b(team|department|support|security|official)\b/i,
+      /\bindia\s+post\b/i,
       /this\s+is\s+(an?\s+)?official\s+(notice|message|communication)/i,
     ],
     reason: "Claims to represent a trusted organization to borrow its credibility.",
@@ -300,7 +301,7 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     weight: 10,
     severity: "low",
     stage: "TRUST",
-    patterns: [/package\s+(is\s+)?(held|delayed|pending)/i, /customs\s+(duty|fee)/i, /reschedule\s+your\s+delivery/i, /shipment\s+(could not|failed)/i],
+    patterns: [/package\s+(is\s+)?(held|delayed|pending|has\s+arrived)/i, /attempted\s+delivery/i, /incomplete\s+address\s+information/i, /update\s+(?:your\s+)?address\s+details/i, /customs\s+(duty|fee)/i, /reschedule\s+your\s+delivery/i, /shipment\s+(could not|failed)/i],
     reason: "Uses a fake delivery problem as a pretext to request payment or personal details.",
   },
   {

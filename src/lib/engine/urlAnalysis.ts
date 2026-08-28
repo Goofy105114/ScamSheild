@@ -12,7 +12,7 @@ const SUSPICIOUS_TLDS = new Set([
 ]);
 
 const URL_SHORTENERS = new Set([
-  "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly", "rebrand.ly",
+  "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly", "rebrand.ly", "grco.de",
 ]);
 
 function levenshtein(a: string, b: string): number {
