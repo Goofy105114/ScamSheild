@@ -7,10 +7,10 @@ interface CategoryRule {
 }
 
 const CATEGORY_RULES: CategoryRule[] = [
-  { category: "job_scam", signals: ["registration_fee", "unrealistic_reward", "upfront_payment", "attractive_offer", "urgency"], weight: 1.3 },
+  { category: "job_scam", signals: ["employment_context", "registration_fee", "unrealistic_reward", "upfront_payment", "attractive_offer", "urgency"], weight: 1.3 },
   { category: "banking_scam", signals: ["banking_info_request", "account_verification", "otp_request"], weight: 1 },
   { category: "payment_scam", signals: ["upfront_payment", "unusual_payment_method"], weight: 0.8 },
-  { category: "investment_scam", signals: ["guaranteed_returns"], weight: 1.4 },
+  { category: "investment_scam", signals: ["guaranteed_returns", "unrealistic_reward"], weight: 1.4 },
   { category: "shopping_scam", signals: ["unusual_payment_method", "unrealistic_reward"], weight: 0.5 },
   { category: "delivery_scam", signals: ["delivery_pretext"], weight: 1.5 },
   { category: "romance_scam", signals: ["romance_pretext"], weight: 1.6 },
@@ -30,6 +30,7 @@ export function classifyCategories(
   const scores = new Map<ScamCategory, number>();
 
   for (const rule of CATEGORY_RULES) {
+    if (rule.category === "job_scam" && !hitIds.has("employment_context")) continue;
     const matched = rule.signals.filter((s) => hitIds.has(s));
     if (matched.length === 0) continue;
     const score = matched.length * rule.weight;

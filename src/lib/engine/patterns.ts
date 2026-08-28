@@ -191,6 +191,16 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     reason: "Offers compensation that is unusually high for a minimal effort or no clear qualification process.",
   },
   {
+    id: "employment_context",
+    label: "Employment opportunity context",
+    category: "structural",
+    weight: 8,
+    severity: "low",
+    stage: "DESIRE",
+    patterns: [/\b(?:job|position|role|employment|employer|internship|recruitment|salary|work[-\s]?from[-\s]?home)\b/i],
+    reason: "References an employment opportunity, which provides context for evaluating related requests or promises.",
+  },
+  {
     id: "exclusivity_claim",
     label: "Exclusivity claim",
     category: "psychological",

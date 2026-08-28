@@ -12,7 +12,7 @@ export function buildRecommendedActions(
   const hitIds = new Set(hits.map((h) => h.id));
   const actions: RecommendedAction[] = [];
 
-  if (hitIds.has("upfront_payment") || hitIds.has("unusual_payment_method")) {
+  if (hitIds.has("upfront_payment") || hitIds.has("registration_fee") || hitIds.has("unusual_payment_method")) {
     actions.push(
       action(
         "no_payment",
