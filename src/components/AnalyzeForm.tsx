@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { ApiErrorBody, ScamAnalysis } from "@/types/analysis";
 import { saveAnalysis } from "@/lib/analysisStore";
@@ -27,10 +27,25 @@ export function AnalyzeForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function onFileChange(f: File | null) {
+    if (f && !["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(f.type)) {
+      setFile(null);
+      setError("Please choose a PNG, JPEG, or WEBP image.");
+      return;
+    }
+    if (f && f.size > 8 * 1024 * 1024) {
+      setFile(null);
+      setError("Image must be smaller than 8MB.");
+      return;
+    }
     setFile(f);
     setError(null);
     if (preview) URL.revokeObjectURL(preview);
     setPreview(f ? URL.createObjectURL(f) : null);
+  }
+
+  function onFileDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    onFileChange(event.dataTransfer.files?.[0] ?? null);
   }
 
   async function handleSubmit() {
@@ -183,14 +198,16 @@ export function AnalyzeForm() {
                 id="scam-image"
               />
               {!preview ? (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                <div
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={onFileDrop}
                   className="flex w-full flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-ink-line px-6 py-14 text-center transition hover:border-amber/60"
                 >
-                  <span className="font-display text-base font-medium text-text-primary">Choose a screenshot</span>
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="font-display text-base font-medium text-text-primary">
+                    Choose a screenshot
+                  </button>
                   <span className="font-mono text-[12px] text-text-muted">or drag and drop it here</span>
-                </button>
+                </div>
               ) : (
                 <div className="relative overflow-hidden rounded-md border border-ink-line">
                   {}
