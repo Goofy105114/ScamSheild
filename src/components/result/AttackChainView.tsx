@@ -65,7 +65,7 @@ export function AttackChainView({ analysis }: { analysis: ScamAnalysis }) {
         <div className="mt-4 rounded-lg border border-red/30 bg-red/5 p-5">
           <p className="font-mono text-[12px] font-semibold text-red">THE TRAP</p>
           <p className="mt-2 text-[14px] leading-relaxed text-text-primary/90">
-            {buildTrapExplanation(analysis.scoreBreakdown.hits, analysis.primaryCategory)}
+            {analysis.aiAssessment?.trapAssessment ?? buildTrapExplanation(analysis.scoreBreakdown.hits, analysis.primaryCategory)}
           </p>
         </div>
       )}

@@ -134,6 +134,10 @@ export interface ScamAnalysis {
   scoreBreakdown: ScoreBreakdown;
   aiEnhanced: boolean;
   aiUnavailableReason: string | null;
+  aiAssessment?: {
+    attackerObjective?: string;
+    trapAssessment?: string;
+  };
 }
 
 export interface AnalyzeTextRequest {

@@ -12,6 +12,8 @@ export const AiSemanticOutputSchema = z.object({
     .nullable(),
   additionalRedFlags: z.array(z.string().max(200)).max(6),
   intentAssessment: z.string().max(600),
+  attackerObjective: z.string().max(240).optional(),
+  trapAssessment: z.string().max(600).optional(),
   aiConfidenceAdjustment: z.number().min(-15).max(15),
   isLikelyBenign: z.boolean(),
 });

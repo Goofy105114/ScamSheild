@@ -69,12 +69,12 @@ export async function runAnalysis(source: AnalysisSource, options: AnalyzeOption
 
   const useAi = options.useAi ?? true;
   const aiResult = useAi
-    ? await runAiSemanticAnalysis(limitedText)
+    ? await runAiSemanticAnalysis(limitedText, { inputType: source.type, hits, evidence, urlAnalysis })
     : { output: null, attempted: false, unavailableReason: "AI analysis was disabled for this request." };
 
   const { primary, secondary } = classifyCategories(hits, urlAnalysis);
   const primaryCategory: ScamCategory =
-    aiResult.output?.likelyCategory && hits.length > 0 ? aiResult.output.likelyCategory : primary;
+    aiResult.output?.likelyCategory && !aiResult.output.isLikelyBenign ? aiResult.output.likelyCategory : primary;
 
   const scoreBreakdown = computeScore(hits, urlAnalysis);
   let riskScore = scoreBreakdown.cappedTotal;
@@ -121,6 +121,9 @@ export async function runAnalysis(source: AnalysisSource, options: AnalyzeOption
     scoreBreakdown,
     aiEnhanced: Boolean(aiResult.output),
     aiUnavailableReason: aiResult.output ? null : aiResult.unavailableReason,
+    aiAssessment: aiResult.output
+      ? { attackerObjective: aiResult.output.attackerObjective, trapAssessment: aiResult.output.trapAssessment }
+      : undefined,
   };
 
   return analysis;
