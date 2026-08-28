@@ -25,6 +25,7 @@ export function AnalyzeForm() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [progressStage, setProgressStage] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -66,6 +67,7 @@ export function AnalyzeForm() {
       return;
     }
 
+    setProgressStage(0);
     setLoading(true);
     try {
       let response: Response;
@@ -75,6 +77,7 @@ export function AnalyzeForm() {
         : null;
 
       try {
+        setProgressStage(4);
         if (tab === "text") {
           response = await fetch("/api/analyze", {
             method: "POST",
@@ -104,6 +107,7 @@ export function AnalyzeForm() {
       }
 
       const data = (await response.json()) as { analysis: ScamAnalysis; extractedText?: string };
+      setProgressStage(5);
       saveAnalysis(data.analysis);
       router.push("/result");
     } catch (submissionError) {
@@ -131,7 +135,7 @@ export function AnalyzeForm() {
   if (loading) {
     return (
       <div className="py-16">
-        <AnalysisProgress />
+        <AnalysisProgress activeStage={progressStage} />
       </div>
     );
   }

@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 const STAGES = [
   "Reading content",
   "Finding suspicious patterns",
@@ -10,15 +8,7 @@ const STAGES = [
   "Building your safety report",
 ];
 
-export function AnalysisProgress() {
-  const [stageIndex, setStageIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setStageIndex((i) => Math.min(i + 1, STAGES.length - 1));
-    }, 900);
-    return () => clearInterval(interval);
-  }, []);
+export function AnalysisProgress({ activeStage }: { activeStage: number }) {
 
   return (
     <div className="mx-auto max-w-md rounded-lg border border-ink-line bg-ink-raised p-8 text-center">
@@ -29,16 +19,16 @@ export function AnalysisProgress() {
           <li
             key={stage}
             className="flex items-center gap-2.5 font-mono text-[13px] transition-colors"
-            style={{ color: i <= stageIndex ? "var(--text-primary)" : "var(--text-muted)" }}
+            style={{ color: i <= activeStage ? "var(--text-primary)" : "var(--text-muted)" }}
           >
             <span
               className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px]"
               style={{
-                borderColor: i <= stageIndex ? "var(--amber)" : "var(--ink-line)",
-                color: i <= stageIndex ? "var(--amber)" : "var(--text-muted)",
+                borderColor: i <= activeStage ? "var(--amber)" : "var(--ink-line)",
+                color: i <= activeStage ? "var(--amber)" : "var(--text-muted)",
               }}
             >
-              {i < stageIndex ? "✓" : ""}
+              {i < activeStage ? "✓" : i === activeStage ? "◌" : ""}
             </span>
             {stage}
           </li>
