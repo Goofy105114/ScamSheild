@@ -3,6 +3,9 @@ import { checkRateLimit, getClientKey } from "@/lib/rateLimit";
 import { runAnalysis } from "@/lib/engine/analyze";
 import { extractTextFromImage } from "@/lib/engine/ocr";
 
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 const OCR_TIMEOUT_MS = 60_000;
 
 async function extractTextWithTimeout(buffer: Buffer): Promise<string> {

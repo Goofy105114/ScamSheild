@@ -15,7 +15,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "url", label: "URL" },
 ];
 
-const IMAGE_REQUEST_TIMEOUT_MS = 70_000;
+const IMAGE_REQUEST_TIMEOUT_MS = 55_000;
 
 export function AnalyzeForm() {
   const router = useRouter();
