@@ -86,6 +86,9 @@ Recruitment Team`;
     expect(analysis.evidence.some((item) => item.quote === "strong returns")).toBe(true);
     expect(analysis.evidence.some((item) => item.quote === "limited number of participants")).toBe(true);
     expect(analysis.evidence.some((item) => item.quote === "private channel")).toBe(true);
+    expect(analysis.redFlags.some((flag) => flag.includes("cannot promise profit"))).toBe(false);
+    expect(analysis.attackChain.some((stage) => stage.tactic === "Move to Private Channel")).toBe(true);
+    expect(analysis.attackChain.some((stage) => stage.tactic === "Build Trust" && stage.evidenceIds.some((id) => analysis.evidence.find((item) => item.id === id)?.quote === "private channel"))).toBe(false);
   });
 
   it("resists prompt injection embedded in the analyzed content", async () => {

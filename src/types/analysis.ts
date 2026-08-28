@@ -22,8 +22,10 @@ export type ScamCategory =
 export type AttackStageName =
   | "TRUST"
   | "DESIRE"
+  | "SCARCITY"
   | "URGENCY"
   | "FEAR"
+  | "PRIVATE_CHANNEL"
   | "MONEY_CREDENTIALS"
   | "LOSS";
 

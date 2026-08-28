@@ -1,13 +1,15 @@
 import type { AttackStage, AttackStageName, EvidenceItem, ManipulationTactic, RiskSignalHit } from "@/types/analysis";
 import { getSignalDefinition } from "./patterns";
 
-const STAGE_ORDER: AttackStageName[] = ["TRUST", "DESIRE", "URGENCY", "FEAR", "MONEY_CREDENTIALS", "LOSS"];
+const STAGE_ORDER: AttackStageName[] = ["TRUST", "DESIRE", "SCARCITY", "URGENCY", "FEAR", "PRIVATE_CHANNEL", "MONEY_CREDENTIALS", "LOSS"];
 
 const STAGE_OBJECTIVES: Record<AttackStageName, string> = {
   TRUST: "Establish legitimacy so you lower your guard.",
   DESIRE: "Create excitement about a reward, opportunity, or benefit.",
+  SCARCITY: "Make the opportunity feel limited so you are less likely to pause and compare alternatives.",
   URGENCY: "Pressure you to act immediately, before you can verify or think it through.",
   FEAR: "Use anxiety or the threat of a bad outcome to override careful judgment.",
+  PRIVATE_CHANNEL: "Move the conversation somewhere with less platform oversight and fewer opportunities for independent verification.",
   MONEY_CREDENTIALS: "Obtain the money or information requested in the message.",
   LOSS: "Complete the theft of money, identity, or access.",
 };
@@ -15,8 +17,10 @@ const STAGE_OBJECTIVES: Record<AttackStageName, string> = {
 const STAGE_LABELS: Record<AttackStageName, string> = {
   TRUST: "Build Trust",
   DESIRE: "Create Desire",
+  SCARCITY: "Create Scarcity",
   URGENCY: "Create Urgency",
   FEAR: "Create Fear",
+  PRIVATE_CHANNEL: "Move to Private Channel",
   MONEY_CREDENTIALS: "Request Money or Credentials",
   LOSS: "The Loss",
 };
@@ -38,8 +42,12 @@ export function buildAttackChain(hits: RiskSignalHit[], evidence: EvidenceItem[]
     const explanation = firstEvidence
       ? stageName === "DESIRE"
         ? `The message leans on "${firstEvidence.quote}" to create a compelling reward narrative and lower skepticism.`
+        : stageName === "SCARCITY"
+          ? `The message uses "${firstEvidence.quote}" to make the opportunity feel limited and discourage careful comparison.`
         : stageName === "URGENCY"
           ? `The message uses "${firstEvidence.quote}" to pressure an immediate decision before the victim can verify the claim.`
+          : stageName === "PRIVATE_CHANNEL"
+            ? `The sender attempts to move the conversation into "${firstEvidence.quote}", where independent verification and platform oversight may be more difficult.`
           : stageName === "MONEY_CREDENTIALS"
             ? getRequestExplanation(stageHits, firstEvidence.quote)
             : `Evidence from "${firstEvidence.quote}" supports this manipulation step.`
@@ -131,8 +139,8 @@ export function buildTrapExplanation(hits: RiskSignalHit[], category: string): s
   const hasDelivery = ids.has("delivery_pretext");
 
   if (hasDelivery && hasUrgency) return "This message creates an unresolved delivery problem and uses urgency to push you toward a payment or information request.";
-  if (category === "investment_scam" && hasReturns && hasPrivateChannel) return "This message combines strong return claims, exclusivity, and private-channel communication to build trust before asking for financial involvement.";
-  if (category === "investment_scam" && (hasReturns || hasExclusivity) && hasPrivateChannel) return "This message combines attractive investment language, exclusivity, and private-channel communication to build trust before asking for financial involvement.";
+  if (category === "investment_scam" && hasReturns && hasPrivateChannel) return "This message combines claims of unusually strong returns with a move to private-channel communication, which can make independent verification more difficult before financial involvement.";
+  if (category === "investment_scam" && (hasReturns || hasExclusivity) && hasPrivateChannel) return "This message combines attractive investment language, limited access, and private-channel communication, which can make independent verification more difficult before financial involvement.";
   if (hasMoney && hasUrgency && hasReturns) return "This message combines an unusually attractive offer, artificial urgency, and an upfront payment request to push you into paying before you have time to verify the claim.";
   if (hasMoney) return "This message builds a case for payment and then asks for money before the promised benefit is delivered.";
   if (hasCredentials && hasUrgency) return "This message combines a request for sensitive access information with urgency to pressure you before you can verify the sender.";
