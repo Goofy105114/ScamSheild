@@ -15,6 +15,39 @@ export interface SignalDefinition {
 
 const money = "(?:₹|rs\\.?|inr|\\$|usd|eur|€|£|gbp)\\s?[\\d,]+(?:\\.\\d+)?|[\\d,]{3,}(?:\\.\\d+)?\\s?(?:rupees|rs|inr|dollars|usd)";
 
+function dedupeText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function shouldTreatAsDuplicate(a: EvidenceItem, b: EvidenceItem): boolean {
+  const familyA = getSignalFamily(a.signalId);
+  const familyB = getSignalFamily(b.signalId);
+  if (familyA !== familyB) return false;
+
+  const aText = dedupeText(a.quote).toLowerCase();
+  const bText = dedupeText(b.quote).toLowerCase();
+  if (!aText || !bText) return false;
+
+  if (aText === bText) return true;
+  return aText.includes(bText) || bText.includes(aText);
+}
+
+function getSignalFamily(signalId: string): string {
+  const paymentSignals = new Set(["upfront_payment", "registration_fee", "unusual_payment_method"]);
+  const compensationSignals = new Set(["attractive_offer", "unrealistic_reward"]);
+
+  if (paymentSignals.has(signalId)) return "payment";
+  if (compensationSignals.has(signalId)) return "compensation";
+  return signalId;
+}
+
+function choosePreferredEvidence(a: EvidenceItem, b: EvidenceItem): EvidenceItem {
+  const aScore = dedupeText(a.quote).split(/\s+/).length + (a.quote.length <= 120 ? 8 : 0) + (/\b(?:pay|fee|charge|within|immediately|today|deadline|final|limit|soon|minutes?)\b/i.test(a.quote) ? 12 : 0);
+  const bScore = dedupeText(b.quote).split(/\s+/).length + (b.quote.length <= 120 ? 8 : 0) + (/\b(?:pay|fee|charge|within|immediately|today|deadline|final|limit|soon|minutes?)\b/i.test(b.quote) ? 12 : 0);
+
+  return aScore >= bScore ? a : b;
+}
+
 export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
   {
     id: "upfront_payment",
@@ -24,8 +57,8 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     severity: "high",
     stage: "MONEY_CREDENTIALS",
     patterns: [
-      new RegExp(`(pay|deposit|transfer|send|need\\s+to\\s+pay|required\\s+to\\s+pay)\\s+(?:an?\\s+)?(?:${money}|[\\w\\s-]{0,18}(fee|charge|deposit|amount))`, "i"),
-      new RegExp(`(registration|processing|verification|activation|security|refundable|clearance)\\s+(fee|charge|deposit|payment)\\s+(?:of\\s+)?(?:${money})?`, "i"),
+      new RegExp(`(?:need\\s+to\\s+pay|pay|deposit|transfer|send)\\s+(?:a\\s+)?(?:refundable\\s+)?(?:registration|processing|verification|activation|security)\\s+(?:fee|charge|deposit|payment)(?:\\s+(?:of|for))?(?:\\s+(?:${money}))?`, "i"),
+      new RegExp(`(?:need\\s+to\\s+pay|pay|deposit|transfer|send)\\s+(?:an?\\s+)?(?:${money}|[\\w\\s-]{0,20}(fee|charge|deposit|amount))`, "i"),
     ],
     reason: "Asks you to pay money before you receive anything in return, a hallmark of advance-fee fraud.",
   },
@@ -38,7 +71,7 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     stage: "MONEY_CREDENTIALS",
     patterns: [
       new RegExp(`(?:registration|processing|verification|activation|onboarding)\\s+(?:fee|charge|payment|deposit)(?:\\s+(?:of|for))?(?:\\s+(?:${money}))?`, "i"),
-      new RegExp(`(?:pay|send|need\\s+to\\s+pay|required\\s+to\\s+pay)\\s+(?:a\\s+)?(?:refundable\\s+)?(?:registration|processing|verification|activation)\\s+(?:fee|charge|payment)(?:\\s+(?:of|for))?(?:\\s+(?:${money}))?`, "i"),
+      new RegExp(`(?:need\\s+to\\s+pay|pay|send)\\s+(?:a\\s+)?(?:refundable\\s+)?(?:registration|processing|verification|activation)\\s+(?:fee|charge|payment)(?:\\s+(?:of|for))?(?:\\s+(?:${money}))?`, "i"),
     ],
     reason: "Requests a registration or processing fee before the opportunity is confirmed, a classic advance-fee scam pattern.",
   },
@@ -87,15 +120,13 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     label: "Artificial urgency",
     category: "psychological",
     weight: 24,
-    severity: "medium",
+    severity: "high",
     stage: "URGENCY",
     patterns: [
       /within\s+(?:the\s+next\s+)?\d+\s?(minutes?|hours?|mins?)/i,
       /within\s+(?:the\s+next\s+)?\d+\s+(?:minutes?|hours?|mins?)/i,
+      /(?:today\s+only|expires?\s+(?:today|tonight)|final\s+warning|respond\s+now|act\s+now|immediately|last\s+chance|limited\s+time|deadline|only\s+(?:a\s+)?few\s+minutes\s+left|before\s+your\s+account\s+is\s+closed)/i,
       /expires?\s+(today|soon|in\s+\d+)/i,
-      /act\s+now/i,
-      /immediately/i,
-      /last\s+chance/i,
       /limited\s+(time|slots?|seats?)/i,
       /before\s+it'?s?\s+too\s+late/i,
       /hurry/i,
@@ -131,9 +162,7 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
       /earn\s+.{0,20}(?:daily|per\s+day|weekly|per\s+month|monthly)/i,
       /no\s+experience\s+(?:needed|required)/i,
       /(?:selected|won|chosen)\s+(?:for|to\s+receive)\s+(?:a\s+)?(?:bonus|reward|cash|salary)/i,
-      /(?:congratulations|selected)\b.{0,80}\b(?:work[-\s]from[-\s]home|home[-\s]based|remote)\b.{0,80}\b(?:job|position|opportunity)\b/i,
-      new RegExp(`(?:selected|chosen|offered)\\s+(?:for\\s+)?(?:a\\s+)?(?:remote|work[-\\s]from[-\\s]home|home[-\\s]based)?\\s*(?:job|position|opportunity)\\s*(?:with\\s+)?(?:a\\s+)?(?:salary|income|pay)\\s*(?:of\\s+)?(?:${money})`, "i"),
-      new RegExp(`(?:work[-\\s]from[-\\s]home|home[-\\s]based|remote)\\s+(?:job|position|opportunity).*?(?:${money})`, "i"),
+      /(?:congratulations|selected)\b.{0,50}\b(?:work[-\s]from[-\s]home|home[-\s]based|remote)\b.{0,50}\b(?:job|position|opportunity)\b/i,
     ],
     reason: "Dangles an unusually attractive reward to lower your skepticism.",
   },
@@ -147,7 +176,7 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     patterns: [
       new RegExp(`(?:salary|income|pay|remuneration)\\s+(?:of\\s+)?(?:${money})\\s+(?:per\\s+month|monthly|per\\s+day|daily|weekly)`, "i"),
       /(?:₹|rs\.?|inr)[\d,]+(?:\.\d+)?\s+(?:per\s+month|monthly)/i,
-      new RegExp(`(?:selected|chosen)\\s+(?:for\\s+)?(?:a\\s+)?(?:remote|work[-\\s]from[-\\s]home|home[-\\s]based)?\\s*(?:job|position|opportunity)\\s+(?:with\\s+)?(?:a\\s+)?(?:salary|income)\\s+(?:of\\s+)?(?:${money})`, "i"),
+      new RegExp(`(?:salary|income)\\s+(?:of\\s+)?(?:${money})`, "i"),
     ],
     reason: "Offers compensation that is unusually high for a minimal effort or no clear qualification process.",
   },
@@ -298,15 +327,16 @@ export function detectSignals(text: string): { hits: RiskSignalHit[]; evidence: 
       const matches = text.matchAll(globalPattern);
       for (const match of matches) {
         if (match.index === undefined) continue;
-        const quote = match[0];
+        const rawQuote = match[0];
+        const quote = rawQuote.trim();
         if (!quote || quote.trim().length === 0) continue;
         evidenceCounter += 1;
         const id = `${def.id}-${evidenceCounter}`;
         evidence.push({
           id,
-          quote,
+          quote: rawQuote,
           startIndex: match.index,
-          endIndex: match.index + quote.length,
+          endIndex: match.index + rawQuote.length,
           reason: def.reason,
           signalId: def.id,
           severity: def.severity,
@@ -326,8 +356,29 @@ export function detectSignals(text: string): { hits: RiskSignalHit[]; evidence: 
     }
   }
 
+  const dedupedEvidence: EvidenceItem[] = [];
   evidence.sort((a, b) => a.startIndex - b.startIndex);
-  return { hits, evidence };
+
+  for (const item of evidence) {
+    const duplicateIndex = dedupedEvidence.findIndex((existing) => shouldTreatAsDuplicate(existing, item));
+    if (duplicateIndex >= 0) {
+      const preferred = choosePreferredEvidence(dedupedEvidence[duplicateIndex], item);
+      dedupedEvidence[duplicateIndex] = preferred;
+      continue;
+    }
+    dedupedEvidence.push(item);
+  }
+
+  dedupedEvidence.sort((a, b) => a.startIndex - b.startIndex);
+
+  for (const hit of hits) {
+    const ids = hit.evidenceIds.filter((id) => dedupedEvidence.some((e) => e.id === id));
+    if (ids.length > 0) {
+      hit.evidenceIds = ids;
+    }
+  }
+
+  return { hits, evidence: dedupedEvidence };
 }
 
 export function getSignalDefinition(id: string): SignalDefinition | undefined {

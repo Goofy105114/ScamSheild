@@ -34,14 +34,22 @@ export function buildAttackChain(hits: RiskSignalHit[], evidence: EvidenceItem[]
     const primaryHit = stageHits.sort((a, b) => b.weight - a.weight)[0];
     const firstEvidence = evidenceIds.map((id) => evidenceById.get(id)).find(Boolean);
 
+    const explanation = firstEvidence
+      ? stageName === "DESIRE"
+        ? `The message leans on "${firstEvidence.quote}" to create a compelling reward narrative and lower skepticism.`
+        : stageName === "URGENCY"
+          ? `The message uses "${firstEvidence.quote}" to pressure an immediate decision before the victim can verify the claim.`
+          : stageName === "MONEY_CREDENTIALS"
+            ? `The message pivots to "${firstEvidence.quote}" to request money or sensitive account details.`
+            : `Evidence from "${firstEvidence.quote}" supports this manipulation step.`
+      : primaryHit.label;
+
     stages.push({
       stage: stageName,
       order: STAGE_ORDER.indexOf(stageName),
       tactic: STAGE_LABELS[stageName],
       evidenceIds,
-      explanation: firstEvidence
-        ? `Detected through: "${firstEvidence.quote}" — ${primaryHit.label.toLowerCase()}.`
-        : primaryHit.label,
+      explanation,
       attackerObjective: STAGE_OBJECTIVES[stageName],
     });
   }
