@@ -12,7 +12,27 @@ interface RecoveryStep {
 }
 
 function getRecoverySteps(analysis: ScamAnalysis): RecoveryStep[] {
-  const steps: RecoveryStep[] = [
+  const signalIds = new Set(analysis.scoreBreakdown.hits.map((hit) => hit.id));
+  const needsCredentialResponse = [
+    "otp_request",
+    "password_request",
+    "banking_info_request",
+    "card_info_request",
+    "account_verification",
+  ].some((id) => signalIds.has(id));
+  const needsPaymentResponse = ["upfront_payment", "registration_fee", "unusual_payment_method"].some((id) => signalIds.has(id));
+  const steps: RecoveryStep[] = [];
+
+  if (needsPaymentResponse) {
+    steps.push({
+      id: "no-payment",
+      title: "Do not send money",
+      description: "Do not pay the requested fee or deposit. A legitimate opportunity should not require upfront payment before it is delivered.",
+      urgent: true,
+    });
+  }
+
+  steps.push(
     {
       id: "stop-contact",
       title: "Stop the conversation",
@@ -23,18 +43,8 @@ function getRecoverySteps(analysis: ScamAnalysis): RecoveryStep[] {
       id: "save-evidence",
       title: "Save the evidence",
       description: "Keep the original message, sender details, timestamps, payment references, and screenshots. Do not edit the originals.",
-    },
-  ];
-
-  const signalIds = new Set(analysis.scoreBreakdown.hits.map((hit) => hit.id));
-  const needsCredentialResponse = [
-    "otp_request",
-    "password_request",
-    "banking_info_request",
-    "card_info_request",
-    "account_verification",
-  ].some((id) => signalIds.has(id));
-  const needsPaymentResponse = ["upfront_payment", "unusual_payment_method"].some((id) => signalIds.has(id));
+    }
+  );
 
   if (needsCredentialResponse) {
     steps.push({

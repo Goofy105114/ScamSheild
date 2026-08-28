@@ -86,7 +86,7 @@ export function analyzeUrl(rawUrl: string): UrlAnalysisResult {
           severity: "medium",
         },
       ],
-      verificationStatement: "Unable to verify: this does not appear to be a valid, well-formed URL.",
+      verificationStatement: "Unable to verify destination: this does not appear to be a valid, well-formed URL.",
     };
   }
 
@@ -176,8 +176,8 @@ export function analyzeUrl(rawUrl: string): UrlAnalysisResult {
 
   const hasHighOrMedium = signals.some((s) => s.severity === "high" || s.severity === "medium");
   const verificationStatement = hasHighOrMedium
-    ? "Multiple structural warning signs were found. Do not enter credentials or payment details until you verify this domain through an official source."
-    : "No strong structural warning signs were found in the URL itself, but this does not confirm the destination is safe. Unable to verify site content, reputation, or intent from structure alone.";
+    ? "Unable to verify destination. Structural warning signs were found, and structural analysis alone cannot establish that a destination is safe. Do not click the link or enter credentials or payment details."
+    : "Unable to verify destination. Structural analysis alone cannot establish that a destination is safe because site content and reputation were not verified.";
 
   return {
     submittedUrl: rawUrl,

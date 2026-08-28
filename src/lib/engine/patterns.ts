@@ -42,8 +42,18 @@ function getSignalFamily(signalId: string): string {
 }
 
 function choosePreferredEvidence(a: EvidenceItem, b: EvidenceItem): EvidenceItem {
-  const aScore = dedupeText(a.quote).split(/\s+/).length + (a.quote.length <= 120 ? 8 : 0) + (/\b(?:pay|fee|charge|within|immediately|today|deadline|final|limit|soon|minutes?)\b/i.test(a.quote) ? 12 : 0);
-  const bScore = dedupeText(b.quote).split(/\s+/).length + (b.quote.length <= 120 ? 8 : 0) + (/\b(?:pay|fee|charge|within|immediately|today|deadline|final|limit|soon|minutes?)\b/i.test(b.quote) ? 12 : 0);
+  if (a.signalId === "registration_fee" && b.signalId === "upfront_payment") return a;
+  if (b.signalId === "registration_fee" && a.signalId === "upfront_payment") return b;
+  if (a.signalId === "attractive_offer" && b.signalId === "attractive_offer") {
+    const aHasPeriod = /\b(?:per\s+month|monthly|per\s+day|daily|weekly)\b/i.test(a.quote);
+    const bHasPeriod = /\b(?:per\s+month|monthly|per\s+day|daily|weekly)\b/i.test(b.quote);
+    if (aHasPeriod !== bHasPeriod) return aHasPeriod ? a : b;
+    const aHasCompensationLabel = /\b(?:salary|income|pay|remuneration)\b/i.test(a.quote);
+    const bHasCompensationLabel = /\b(?:salary|income|pay|remuneration)\b/i.test(b.quote);
+    if (aHasCompensationLabel !== bHasCompensationLabel) return aHasCompensationLabel ? a : b;
+  }
+  const aScore = (a.quote.length <= 120 ? 8 : 0) + (12 - Math.min(12, dedupeText(a.quote).split(/\s+/).length)) + (/\b(?:pay|fee|charge|within|immediately|today|deadline|final|limit|soon|minutes?)\b/i.test(a.quote) ? 12 : 0);
+  const bScore = (b.quote.length <= 120 ? 8 : 0) + (12 - Math.min(12, dedupeText(b.quote).split(/\s+/).length)) + (/\b(?:pay|fee|charge|within|immediately|today|deadline|final|limit|soon|minutes?)\b/i.test(b.quote) ? 12 : 0);
 
   return aScore >= bScore ? a : b;
 }
@@ -181,6 +191,16 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     reason: "Offers compensation that is unusually high for a minimal effort or no clear qualification process.",
   },
   {
+    id: "exclusivity_claim",
+    label: "Exclusivity claim",
+    category: "psychological",
+    weight: 10,
+    severity: "medium",
+    stage: "DESIRE",
+    patterns: [/limited\s+number\s+of\s+(?:participants|members|people|spots|slots)/i, /exclusive\s+(?:access|opportunity|group|offer)/i],
+    reason: "Uses limited access or exclusivity to make the opportunity feel scarce and discourage careful consideration.",
+  },
+  {
     id: "prize_lottery",
     label: "Prize or lottery claim",
     category: "psychological",
@@ -197,7 +217,7 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     weight: 22,
     severity: "high",
     stage: "DESIRE",
-    patterns: [/guaranteed\s+returns?/i, /double\s+your\s+(money|investment)/i, /risk[-\s]?free\s+investment/i, /\d{2,4}%\s+returns?/i],
+    patterns: [/guaranteed\s+returns?/i, /strong\s+returns?/i, /double\s+your\s+(money|investment)/i, /risk[-\s]?free\s+investment/i, /\d{2,4}%\s+returns?/i],
     reason: "No legitimate investment can guarantee high returns; this is a defining trait of investment fraud.",
   },
   {
@@ -240,7 +260,7 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     weight: 12,
     severity: "low",
     stage: "TRUST",
-    patterns: [/contact\s+us\s+on\s+whatsapp/i, /message\s+us\s+(directly|privately)/i, /switch\s+to\s+(telegram|whatsapp)/i],
+    patterns: [/contact\s+us\s+on\s+whatsapp/i, /message\s+us\s+(directly|privately)/i, /private\s+channel/i, /switch\s+to\s+(telegram|whatsapp)/i],
     reason: "Tries to move the conversation to a less monitored, harder-to-trace channel.",
   },
   {
