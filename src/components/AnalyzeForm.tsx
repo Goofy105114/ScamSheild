@@ -15,6 +15,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "url", label: "URL" },
 ];
 
+const IMAGE_REQUEST_TIMEOUT_MS = 70_000;
+
 export function AnalyzeForm() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("text");
@@ -67,23 +69,31 @@ export function AnalyzeForm() {
     setLoading(true);
     try {
       let response: Response;
+      const imageRequestController = tab === "image" ? new AbortController() : null;
+      const imageTimeout = imageRequestController
+        ? window.setTimeout(() => imageRequestController.abort(), IMAGE_REQUEST_TIMEOUT_MS)
+        : null;
 
-      if (tab === "text") {
-        response = await fetch("/api/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        });
-      } else if (tab === "url") {
-        response = await fetch("/api/analyze/url", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url }),
-        });
-      } else {
-        const formData = new FormData();
-        formData.append("image", file as File);
-        response = await fetch("/api/analyze/image", { method: "POST", body: formData });
+      try {
+        if (tab === "text") {
+          response = await fetch("/api/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+          });
+        } else if (tab === "url") {
+          response = await fetch("/api/analyze/url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url }),
+          });
+        } else {
+          const formData = new FormData();
+          formData.append("image", file as File);
+          response = await fetch("/api/analyze/image", { method: "POST", body: formData, signal: imageRequestController?.signal });
+        }
+      } finally {
+        if (imageTimeout !== null) window.clearTimeout(imageTimeout);
       }
 
       if (!response.ok) {
@@ -96,8 +106,10 @@ export function AnalyzeForm() {
       const data = (await response.json()) as { analysis: ScamAnalysis; extractedText?: string };
       saveAnalysis(data.analysis);
       router.push("/result");
-    } catch {
-      setError("Network error. Please check your connection and try again.");
+    } catch (submissionError) {
+      setError(submissionError instanceof DOMException && submissionError.name === "AbortError"
+        ? "Screenshot processing took too long. Try a smaller or clearer screenshot, or paste the message text directly."
+        : "Network error. Please check your connection and try again.");
       setLoading(false);
     }
   }
