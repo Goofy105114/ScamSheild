@@ -57,11 +57,13 @@ export async function POST(req: Request) {
     return jsonError(400, "INVALID_FILE", "Could not read the uploaded file.");
   }
 
-  let extractedText = "";
-  try {
-    extractedText = await extractTextWithTimeout(buffer);
-  } catch {
-    return jsonError(502, "OCR_FAILED", "Text extraction from the image failed. Please try a clearer screenshot or paste the text directly.");
+  let extractedText = formData.get("extractedText");
+  if (typeof extractedText !== "string") {
+    try {
+      extractedText = await extractTextWithTimeout(buffer);
+    } catch {
+      return jsonError(502, "OCR_FAILED", "Text extraction from the image failed. Please try a clearer screenshot or paste the text directly.");
+    }
   }
 
   if (!extractedText || extractedText.trim().length < 3) {

@@ -6,6 +6,7 @@ import type { ApiErrorBody, ScamAnalysis } from "@/types/analysis";
 import { saveAnalysis } from "@/lib/analysisStore";
 import { AnalysisProgress } from "./AnalysisProgress";
 import { DEMO_EXAMPLES } from "@/lib/examples";
+import { createWorker } from "tesseract.js";
 
 type Tab = "text" | "image" | "url";
 
@@ -16,6 +17,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 const IMAGE_REQUEST_TIMEOUT_MS = 55_000;
+const BROWSER_OCR_TIMEOUT_MS = 45_000;
 
 export function AnalyzeForm() {
   const router = useRouter();
@@ -49,6 +51,28 @@ export function AnalyzeForm() {
   function onFileDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     onFileChange(event.dataTransfer.files?.[0] ?? null);
+  }
+
+  async function extractScreenshotText(image: File): Promise<string> {
+    const workerPromise = createWorker("eng", 1, {
+      workerPath: "/tesseract/worker.min.js",
+      langPath: "/tessdata/",
+      corePath: "/tesseract/tesseract-core-lstm.wasm.js",
+      gzip: true,
+    });
+    const worker = await Promise.race([
+      workerPromise,
+      new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error("Browser OCR timed out")), BROWSER_OCR_TIMEOUT_MS)),
+    ]);
+    try {
+      const result = await Promise.race([
+        worker.recognize(image),
+        new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error("Browser OCR timed out")), BROWSER_OCR_TIMEOUT_MS)),
+      ]);
+      return result.data.text.trim();
+    } finally {
+      await worker.terminate();
+    }
   }
 
   async function handleSubmit() {
@@ -91,8 +115,14 @@ export function AnalyzeForm() {
             body: JSON.stringify({ url }),
           });
         } else {
+          setProgressStage(0);
+          const extractedText = await extractScreenshotText(file as File);
+          if (extractedText.length < 3) {
+            throw new Error("No readable text could be extracted from this image.");
+          }
           const formData = new FormData();
           formData.append("image", file as File);
+          formData.append("extractedText", extractedText);
           response = await fetch("/api/analyze/image", { method: "POST", body: formData, signal: imageRequestController?.signal });
         }
       } finally {
@@ -111,9 +141,13 @@ export function AnalyzeForm() {
       saveAnalysis(data.analysis);
       router.push("/result");
     } catch (submissionError) {
-      setError(submissionError instanceof DOMException && submissionError.name === "AbortError"
-        ? "Screenshot processing took too long. Try a smaller or clearer screenshot, or paste the message text directly."
-        : "Network error. Please check your connection and try again.");
+      setError(submissionError instanceof Error && submissionError.message === "No readable text could be extracted from this image."
+        ? submissionError.message
+        : submissionError instanceof Error && submissionError.message === "Browser OCR timed out"
+          ? "Screenshot processing took too long. Try a smaller or clearer screenshot, or paste the message text directly."
+        : submissionError instanceof DOMException && submissionError.name === "AbortError"
+          ? "Screenshot processing took too long. Try a smaller or clearer screenshot, or paste the message text directly."
+          : "Screenshot processing failed. Try a clearer screenshot or paste the message text directly.");
       setLoading(false);
     }
   }
