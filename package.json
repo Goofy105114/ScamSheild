@@ -4,10 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=20.9.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.121.0",
