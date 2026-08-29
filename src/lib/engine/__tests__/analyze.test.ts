@@ -59,7 +59,8 @@ Recruitment Team`;
     const analysis = await runAnalysis({ type: "text", rawText: text });
     const moneyStage = analysis.attackChain.find((stage) => stage.stage === "MONEY_CREDENTIALS");
 
-    expect(analysis.riskScore).toBe(100);
+    expect(analysis.riskLevel).toBe("CRITICAL");
+    expect(analysis.riskScore).toBeGreaterThanOrEqual(80);
     expect(analysis.evidence.some((item) => item.quote === "salary of ₹75,000 per month")).toBe(true);
     expect(analysis.evidence.some((item) => item.quote === "registration fee of ₹1,499")).toBe(true);
     expect(analysis.evidence.some((item) => item.quote === "within the next 10 minutes")).toBe(true);
@@ -130,5 +131,54 @@ Recruitment Team`;
     const analysis = await runAnalysis({ type: "text", rawText: "Please pay the fee within 5 minutes." });
     expect(analysis.aiEnhanced).toBe(false);
     expect(analysis.aiUnavailableReason).not.toBeNull();
+  });
+
+  it("does not flag a legitimate security notification as a credential request", async () => {
+    const text =
+      "Someone just used your password to try to sign in to your Google Account. Google stopped this sign-in attempt. If this wasn't you, change your password immediately.";
+    const analysis = await runAnalysis({ type: "text", rawText: text });
+    expect(analysis.riskLevel).toBe("LOW");
+    expect(analysis.scoreBreakdown.hits.some((h) => h.id === "password_request")).toBe(false);
+    expect(analysis.scoreBreakdown.hits.some((h) => h.id === "urgency")).toBe(false);
+  });
+
+  it("still flags an actual password phishing attempt with directive language", async () => {
+    const text = "Your account has been flagged. Please share your password and OTP within 15 minutes to avoid suspension.";
+    const analysis = await runAnalysis({ type: "text", rawText: text });
+    expect(["HIGH", "CRITICAL"]).toContain(analysis.riskLevel);
+    expect(analysis.scoreBreakdown.hits.some((h) => h.id === "password_request")).toBe(true);
+    expect(analysis.scoreBreakdown.hits.some((h) => h.id === "otp_request")).toBe(true);
+  });
+
+  it("does not double-count the same fee mention across overlapping payment signals", async () => {
+    const text =
+      "Congratulations! You have won a lucky draw prize of $5000. To claim your prize, please pay a processing fee of $50 within 24 hours.";
+    const analysis = await runAnalysis({ type: "text", rawText: text });
+    const paymentFamilyHits = analysis.scoreBreakdown.hits.filter((h) =>
+      ["upfront_payment", "registration_fee"].includes(h.id)
+    );
+    expect(paymentFamilyHits.length).toBeLessThanOrEqual(1);
+    expect(analysis.primaryCategory).toBe("lottery_prize_scam");
+  });
+
+  it("classifies a bank OTP scam as banking or account-related, not a job scam", async () => {
+    const text =
+      "Dear customer, your bank account requires urgent verification. Please share the OTP sent to your phone to avoid account suspension.";
+    const analysis = await runAnalysis({ type: "text", rawText: text });
+    expect(analysis.primaryCategory).not.toBe("job_scam");
+    expect(["banking_scam", "account_takeover", "credential_theft", "phishing"]).toContain(analysis.primaryCategory);
+  });
+
+  it("classifies a delivery scam as delivery-related, not a job scam", async () => {
+    const text =
+      "Your package delivery has an incomplete address. Please update your address details and pay a redelivery fee of $2.99 immediately.";
+    const analysis = await runAnalysis({ type: "text", rawText: text });
+    expect(analysis.primaryCategory).not.toBe("job_scam");
+  });
+
+  it("gives near-zero-signal benign content a confident, not merely low, confidence score", async () => {
+    const analysis = await runAnalysis({ type: "text", rawText: "Hey, are we still on for lunch tomorrow at 1pm?" });
+    expect(analysis.riskLevel).toBe("LOW");
+    expect(analysis.confidence).toBeGreaterThanOrEqual(0.6);
   });
 });

@@ -45,6 +45,28 @@ function buildNextSteps(primaryCategory: ScamCategory, riskLevelIsLow: boolean):
   ];
 }
 
+export function applyContextValidation(
+  hits: RiskSignalHit[],
+  evidence: EvidenceItem[],
+  invalidEvidenceIds: string[]
+): { hits: RiskSignalHit[]; evidence: EvidenceItem[] } {
+  if (invalidEvidenceIds.length === 0) {
+    return { hits, evidence };
+  }
+  const invalidSet = new Set(invalidEvidenceIds);
+  const filteredEvidence = evidence.filter((e) => !invalidSet.has(e.id));
+
+  const filteredHits: RiskSignalHit[] = [];
+  for (const hit of hits) {
+    const remainingIds = hit.evidenceIds.filter((id) => !invalidSet.has(id));
+    if (remainingIds.length > 0) {
+      filteredHits.push({ ...hit, evidenceIds: remainingIds });
+    }
+  }
+
+  return { hits: filteredHits, evidence: filteredEvidence };
+}
+
 export interface AnalyzeOptions {
   useAi?: boolean;
 }
@@ -54,7 +76,7 @@ export async function runAnalysis(source: AnalysisSource, options: AnalyzeOption
   const { clean } = normalizeText(textForAnalysis);
   const { text: limitedText } = enforceLengthLimit(clean);
 
-  const { hits, evidence } = detectSignals(limitedText);
+  const { hits: rawHits, evidence: rawEvidence } = detectSignals(limitedText);
   const entities = extractEntities(limitedText);
 
   let urlAnalysis = null;
@@ -69,8 +91,12 @@ export async function runAnalysis(source: AnalysisSource, options: AnalyzeOption
 
   const useAi = options.useAi ?? true;
   const aiResult = useAi
-    ? await runAiSemanticAnalysis(limitedText, { inputType: source.type, hits, evidence, urlAnalysis })
+    ? await runAiSemanticAnalysis(limitedText, { inputType: source.type, hits: rawHits, evidence: rawEvidence, urlAnalysis })
     : { output: null, attempted: false, unavailableReason: "AI analysis was disabled for this request." };
+
+  const { hits, evidence } = aiResult.output
+    ? applyContextValidation(rawHits, rawEvidence, aiResult.output.invalidEvidenceIds)
+    : { hits: rawHits, evidence: rawEvidence };
 
   const { primary, secondary } = classifyCategories(hits, urlAnalysis);
   const primaryCategory: ScamCategory =
@@ -81,8 +107,8 @@ export async function runAnalysis(source: AnalysisSource, options: AnalyzeOption
 
   if (aiResult.output) {
     riskScore = Math.max(0, Math.min(100, Math.round(riskScore + aiResult.output.aiConfidenceAdjustment)));
-    if (aiResult.output.isLikelyBenign && hits.length <= 1) {
-      riskScore = Math.min(riskScore, 25);
+    if (aiResult.output.isLikelyBenign) {
+      riskScore = Math.min(riskScore, hits.length === 0 ? 15 : 30);
     }
   }
 
@@ -91,7 +117,10 @@ export async function runAnalysis(source: AnalysisSource, options: AnalyzeOption
   const manipulationTactics = buildManipulationTactics(hits);
   const recommendedActions = buildRecommendedActions(primaryCategory, hits, Boolean(urlAnalysis?.isValidUrl));
   const redFlags = buildRedFlags(hits, aiResult.output?.additionalRedFlags ?? []);
-  const simpleExplanation = generateSimpleExplanation(riskLevel, primaryCategory, hits);
+  const simpleExplanation =
+    aiResult.output?.isLikelyBenign && aiResult.output.benignExplanation
+      ? aiResult.output.benignExplanation
+      : generateSimpleExplanation(riskLevel, primaryCategory, hits);
   const summaryBase = generateSummary(riskLevel, primaryCategory, hits.length);
   const summary = aiResult.output?.intentAssessment
     ? `${summaryBase} ${aiResult.output.intentAssessment}`

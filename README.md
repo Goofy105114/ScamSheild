@@ -203,10 +203,55 @@ about from the CSS.
   explicitly in the product's "unable to verify" language.
 - OCR accuracy depends on screenshot clarity; low-resolution or heavily stylized screenshots may extract text
   imperfectly.
-- The AI semantic-analysis layer is optional and additive; without an API key, category classification and red
-  flags come entirely from the rule-based engine.
+- The AI semantic-analysis layer is optional; without an API key, category classification, risk scoring, and
+  evidence validation come entirely from the deterministic rule-based engine described above. The AI layer's
+  contextual-invalidation mechanism (see "Reasoning layer" above) has been verified with synthetic/mocked AI
+  responses exercising the full pipeline, but has not been exercised against a live model call in this environment
+  — validate it against your own API key before relying on it.
 - Rate limiting is in-memory and per-instance, suitable for a demo/hackathon deployment; a production deployment
   behind multiple server instances would want a shared store (e.g. Redis).
+- Regex-based context guards (requiring a disclosure verb near "password"/"OTP", requiring an action verb near
+  "immediately") reduce false positives significantly but are not a substitute for true language understanding;
+  some edge cases will still be misread without the AI layer engaged.
+
+## Reasoning-layer hardening (latest pass)
+
+An earlier version of the rule-based engine matched signals on bare keywords — "password," "OTP," and "immediately"
+each triggered high-severity signals regardless of surrounding context. This produced real false positives; for
+example, a legitimate Google security notification ("Someone just used your password to try to sign in... change
+your password immediately") scored MEDIUM risk purely from those two keywords, despite never asking the reader to
+disclose anything.
+
+This was found and fixed with an empirical regression test, not by inspection alone. Changes made:
+
+- **Directive-context requirements**: `password_request`, `otp_request`, and the strongest `urgency` patterns now
+  require a disclosure verb (share, send, enter, provide, etc.) or an action-pairing near the trigger phrase,
+  instead of firing on the bare word. The legitimate-alert example above now correctly scores LOW; genuine phishing
+  ("share your password and OTP within 15 minutes") still scores CRITICAL.
+- **Double-counting fix**: evidence deduplication previously left "orphaned" signal hits in the score total after
+  their evidence was absorbed by an overlapping signal from the same family (e.g. `registration_fee` and
+  `upfront_payment` both firing on one "processing fee" phrase). Hits that lose all their evidence to dedup are now
+  removed from scoring entirely, not just cosmetically hidden from the evidence list.
+- **Confidence decoupled from risk direction**: near-zero-signal content now gets a genuinely high confidence score
+  for being likely benign, rather than confidence scaling only with how many (weak) signals were found.
+- **URL scoring recalibrated for unambiguous deception techniques**: a lookalike domain (e.g.
+  `accounts-google-security.example.com`, where the real registrable domain is `example.com`) or userinfo-based `@`
+  deception (e.g. `google.com@secure-login-account.com`) now scores HIGH/CRITICAL even with no surrounding message
+  text, since both are close to unambiguous phishing indicators on their own.
+- **AI context-validation layer**: when an API key is configured, the AI reasoning layer now receives every
+  deterministic evidence item with its id and exact quote, and can mark specific items as `invalidEvidenceIds` when
+  the surrounding context contradicts the deterministic interpretation (e.g. a password mention that's reporting a
+  past sign-in attempt rather than requesting disclosure). Invalidated evidence is removed before category
+  classification, scoring, attack-chain reconstruction, and recommendations are built — not applied as a cosmetic
+  afterthought. This is the mechanism that generalizes beyond what regex alone can catch. Verified with mocked AI
+  responses driving the full pipeline (see `aiReasoningPipeline.test.ts`); not yet verified against a live API call.
+- **Category classification gap fixed**: `registration_fee` evidence wasn't counting toward `payment_scam`
+  classification at all, only toward `job_scam` when employment context was also present — meaning a prize scam
+  charging a "processing fee" had one less signal pulling it toward the correct category.
+
+All of the above is covered by dedicated regression tests (`analyze.test.ts`, `urlAnalysis.test.ts`,
+`contextValidation.test.ts`, `aiReasoningPipeline.test.ts`) so these specific failure modes don't silently
+regress.
 
 ## Future improvements
 

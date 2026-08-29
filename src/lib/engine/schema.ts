@@ -16,6 +16,9 @@ export const AiSemanticOutputSchema = z.object({
   trapAssessment: z.string().max(600).optional(),
   aiConfidenceAdjustment: z.number().min(-15).max(15),
   isLikelyBenign: z.boolean(),
+  benignExplanation: z.string().max(400).optional(),
+  invalidEvidenceIds: z.array(z.string().max(80)).max(20).default([]),
+  invalidEvidenceReason: z.string().max(400).optional(),
 });
 
 export type AiSemanticOutput = z.infer<typeof AiSemanticOutputSchema>;

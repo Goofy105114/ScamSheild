@@ -92,8 +92,12 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     weight: 26,
     severity: "high",
     stage: "MONEY_CREDENTIALS",
-    patterns: [/\botp\b/i, /one[-\s]?time\s?(password|code|pin)/i, /verification\s?code/i, /share.{0,20}\bcode\b/i],
-    reason: "Legitimate organizations never ask you to share a one-time password or verification code.",
+    patterns: [
+      /\b(?:share|send|enter|provide|give|reveal|submit|tell\s+us|read\s+out|forward)\b[^.?!\n]{0,40}\b(?:otp|one[-\s]?time\s?(?:password|code|pin)|verification\s?code)\b/i,
+      /\b(?:otp|one[-\s]?time\s?(?:password|code|pin)|verification\s?code)\b[^.?!\n]{0,40}\b(?:to\s+(?:us|confirm|verify)|here|below)\b/i,
+      /\bneed(?:s)?\s+(?:your\s+)?(?:otp|one[-\s]?time\s?(?:password|code|pin)|verification\s?code)\b/i,
+    ],
+    reason: "Asks you to disclose a one-time password or verification code, which legitimate organizations never request.",
   },
   {
     id: "password_request",
@@ -102,8 +106,12 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     weight: 32,
     severity: "high",
     stage: "MONEY_CREDENTIALS",
-    patterns: [/\bpassword\b/i, /\bpin\s?(number|code)?\b/i, /login\s?credentials/i],
-    reason: "Requests your password or PIN, which no legitimate service needs to know.",
+    patterns: [
+      /\b(?:share|send|enter|provide|give|reveal|submit|tell\s+us|type\s+in)\b[^.?!\n]{0,80}\b(?:your\s+)?(?:password|pin\s?(?:number|code)?|login\s?credentials)\b/i,
+      /\b(?:password|pin\s?(?:number|code)?|login\s?credentials)\b[^.?!\n]{0,40}\b(?:to\s+(?:us|confirm|verify|login|log\s+in)|here|below)\b/i,
+      /\bneed(?:s)?\s+(?:your\s+)?(?:password|pin\s?(?:number|code)?|login\s?credentials)\b/i,
+    ],
+    reason: "Asks you to disclose your password or PIN, which no legitimate service needs to know.",
   },
   {
     id: "banking_info_request",
@@ -135,11 +143,13 @@ export const SIGNAL_DEFINITIONS: SignalDefinition[] = [
     patterns: [
       /within\s+(?:the\s+next\s+)?\d+\s?(minutes?|hours?|mins?)/i,
       /within\s+(?:the\s+next\s+)?\d+\s+(?:minutes?|hours?|mins?)/i,
-      /(?:today\s+only|expires?\s+(?:today|tonight)|final\s+warning|respond\s+now|act\s+now|immediately|last\s+chance|limited\s+time|deadline|only\s+(?:a\s+)?few\s+minutes\s+left|before\s+your\s+account\s+is\s+closed)/i,
+      /(?:today\s+only|expires?\s+(?:today|tonight)|final\s+warning|respond\s+now|act\s+now|last\s+chance|limited\s+time|deadline|only\s+(?:a\s+)?few\s+minutes\s+left|before\s+your\s+account\s+is\s+closed)/i,
       /expires?\s+(today|soon|in\s+\d+)/i,
       /limited\s+(time|slots?|seats?)/i,
       /before\s+it'?s?\s+too\s+late/i,
-      /hurry/i,
+      /\b(?:respond|reply|verify|confirm|pay|click|act|proceed|submit)\b[^.?!\n]{0,25}\b(?:immediately|right\s+away|at\s+once)\b/i,
+      /\b(?:immediately|right\s+away|at\s+once)\b[^.?!\n]{0,25}\b(?:respond|reply|verify|confirm|pay|click|act|proceed|submit)\b/i,
+      /\bhurry\b[^.?!\n]{0,25}\b(?:before|offer|deal|slots?|seats?)\b/i,
     ],
     reason: "Pressures you to act quickly, leaving no time to verify the claim.",
   },
@@ -402,14 +412,16 @@ export function detectSignals(text: string): { hits: RiskSignalHit[]; evidence: 
 
   dedupedEvidence.sort((a, b) => a.startIndex - b.startIndex);
 
+  const survivingHits: RiskSignalHit[] = [];
   for (const hit of hits) {
     const ids = hit.evidenceIds.filter((id) => dedupedEvidence.some((e) => e.id === id));
     if (ids.length > 0) {
       hit.evidenceIds = ids;
+      survivingHits.push(hit);
     }
   }
 
-  return { hits, evidence: dedupedEvidence };
+  return { hits: survivingHits, evidence: dedupedEvidence };
 }
 
 export function getSignalDefinition(id: string): SignalDefinition | undefined {

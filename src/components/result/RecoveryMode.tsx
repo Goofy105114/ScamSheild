@@ -183,7 +183,10 @@ export function RecoveryMode({ analysis }: { analysis: ScamAnalysis }) {
             {copied ? "Copied" : "Copy report"}
           </button>
         </div>
-        <pre className="mt-4 max-h-56 overflow-auto whitespace-pre-wrap border-t border-ink-line pt-4 font-mono text-[11px] leading-relaxed text-text-muted">
+        <pre
+          tabIndex={0}
+          className="mt-4 max-h-56 overflow-auto whitespace-pre-wrap border-t border-ink-line pt-4 font-mono text-[11px] leading-relaxed text-text-muted"
+        >
           {reportTemplate}
         </pre>
       </div>

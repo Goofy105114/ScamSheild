@@ -3,7 +3,12 @@ import type { RiskLevel, RiskSignalHit, ScoreBreakdown, UrlAnalysisResult } from
 const URL_SEVERITY_WEIGHT: Record<"low" | "medium" | "high", number> = {
   low: 4,
   medium: 10,
-  high: 20,
+  high: 22,
+};
+
+const DECEPTIVE_URL_SIGNAL_WEIGHT: Record<string, number> = {
+  lookalike_domain: 58,
+  embedded_credentials_or_at: 58,
 };
 
 export function computeScore(hits: RiskSignalHit[], urlAnalysis: UrlAnalysisResult | null): ScoreBreakdown {
@@ -18,7 +23,7 @@ export function computeScore(hits: RiskSignalHit[], urlAnalysis: UrlAnalysisResu
   if (urlAnalysis) {
     for (const signal of urlAnalysis.signals) {
       if (signal.id === "invalid_url") continue;
-      const weight = URL_SEVERITY_WEIGHT[signal.severity];
+      const weight = DECEPTIVE_URL_SIGNAL_WEIGHT[signal.id] ?? URL_SEVERITY_WEIGHT[signal.severity];
       total += weight;
       urlHits.push({
         id: `url_${signal.id}`,
@@ -55,12 +60,16 @@ function combineWithDiminishingReturns(hits: RiskSignalHit[], baseline: number):
 export function riskLevelFromScore(score: number): RiskLevel {
   if (score >= 80) return "CRITICAL";
   if (score >= 60) return "HIGH";
-  if (score >= 30) return "MEDIUM";
+  if (score >= 20) return "MEDIUM";
   return "LOW";
 }
 
 export function confidenceFromSignals(hitCount: number, hasUrl: boolean, aiEnhanced: boolean): number {
-  let confidence = 0.35 + Math.min(hitCount, 8) * 0.06;
+  if (hitCount === 0) {
+    const benignConfidence = hasUrl ? 0.68 : 0.78;
+    return aiEnhanced ? Math.min(0.95, benignConfidence + 0.1) : benignConfidence;
+  }
+  let confidence = 0.42 + Math.min(hitCount, 8) * 0.06;
   if (hasUrl) confidence += 0.05;
   if (aiEnhanced) confidence += 0.1;
   return Math.max(0.2, Math.min(0.97, Number(confidence.toFixed(2))));
